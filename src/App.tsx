@@ -28,7 +28,7 @@ function App() {
               color: "#555",
             }}
           >
-            last update - 2025-10-27
+            last update - 2025-12-08
           </span>
         </header>
 
