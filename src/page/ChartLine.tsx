@@ -22,6 +22,7 @@ type Row = {
 
 type ChartDatum = Record<string, number | string>;
 
+const ALL_YEARS = "전체";
 const ALL_MONTHS = "전체";
 
 const getDateStr = (row: Row) => row.latestUserDate ?? row.firstUserDate ?? "";
@@ -185,28 +186,35 @@ const checkboxStyle = (active: boolean): CSSProperties => ({
 
 const formatYearLabel = (year: string) => `${year}년`;
 const formatMonthLabel = (month: string) => `${dayjs(`${month}-01`).month() + 1}월`;
+const formatYearMonthLabel = (month: string) => {
+  const date = dayjs(`${month}-01`);
+  return `${date.year()}년 ${date.month() + 1}월`;
+};
 
 export default function ChartLine() {
   const allLabels = extractAllLabels(validRawData);
   const availableYears = extractAvailableYears(validRawData);
 
   const [selectedLabels, setSelectedLabels] = useState<string[]>(allLabels);
-  const [selectedYear, setSelectedYear] = useState<string>(availableYears[0] ?? "");
+  const [selectedYear, setSelectedYear] = useState<string>(ALL_YEARS);
   const [selectedMonth, setSelectedMonth] = useState<string>(ALL_MONTHS);
   const [clickedDate, setClickedDate] = useState<string | null>(null);
   const [sortOption, setSortOption] = useState<"date" | "label">("date");
 
   const isAllSelected = selectedLabels.length === allLabels.length;
 
-  const yearData = validRawData.filter((row) => dayjs(getDateStr(row)).format("YYYY") === selectedYear);
-  const monthlyData = groupByMonthAndLabel(yearData, allLabels);
+  const selectedYearData =
+    selectedYear === ALL_YEARS
+      ? validRawData
+      : validRawData.filter((row) => dayjs(getDateStr(row)).format("YYYY") === selectedYear);
+  const monthlyData = groupByMonthAndLabel(selectedYearData, allLabels);
   const months = monthlyData.map((datum) => String(datum.month));
   const dailyData =
-    selectedMonth === ALL_MONTHS ? [] : groupByDayAndLabelWithFill(yearData, selectedMonth, allLabels);
+    selectedMonth === ALL_MONTHS ? [] : groupByDayAndLabelWithFill(selectedYearData, selectedMonth, allLabels);
 
   const labelsToShow = selectedLabels;
 
-  const filteredRaw = yearData.filter((row) => {
+  const filteredRaw = selectedYearData.filter((row) => {
     const dateMatch = clickedDate
       ? dayjs(getDateStr(row)).format("YYYY-MM-DD") === clickedDate
       : false;
@@ -225,9 +233,13 @@ export default function ChartLine() {
   });
 
   const selectedPeriodLabel =
-    selectedMonth === ALL_MONTHS
-      ? `${formatYearLabel(selectedYear)} 전체`
-      : `${formatYearLabel(selectedYear)} ${formatMonthLabel(selectedMonth)}`;
+    selectedYear === ALL_YEARS
+      ? selectedMonth === ALL_MONTHS
+        ? "전체 연도"
+        : formatYearMonthLabel(selectedMonth)
+      : selectedMonth === ALL_MONTHS
+        ? `${formatYearLabel(selectedYear)} 전체`
+        : `${formatYearLabel(selectedYear)} ${formatMonthLabel(selectedMonth)}`;
 
   const toggleSelectAll = () => {
     if (isAllSelected) {
@@ -264,6 +276,13 @@ export default function ChartLine() {
         </div>
 
         <div style={{ marginBottom: 8 }}>
+          <button
+            key={ALL_YEARS}
+            onClick={() => handleYearClick(ALL_YEARS)}
+            style={buttonStyle(selectedYear === ALL_YEARS)}
+          >
+            전체
+          </button>
           {availableYears.map((year) => (
             <button
               key={year}
@@ -288,7 +307,7 @@ export default function ChartLine() {
               onClick={() => handleMonthClick(month)}
               style={buttonStyle(selectedMonth === month)}
             >
-              {formatMonthLabel(month)}
+              {selectedYear === ALL_YEARS ? formatYearMonthLabel(month) : formatMonthLabel(month)}
             </button>
           ))}
         </div>
@@ -331,7 +350,13 @@ export default function ChartLine() {
         </div>
 
         <h3 style={{ marginBottom: 10 }}>
-          {selectedMonth === ALL_MONTHS ? `${formatYearLabel(selectedYear)} VOC` : `${selectedMonth} VOC`}
+          {selectedYear === ALL_YEARS
+            ? selectedMonth === ALL_MONTHS
+              ? "전체 VOC"
+              : `${formatYearMonthLabel(selectedMonth)} VOC`
+            : selectedMonth === ALL_MONTHS
+              ? `${formatYearLabel(selectedYear)} VOC`
+              : `${selectedMonth} VOC`}
         </h3>
 
         {labelsToShow.length === 0 ? (
@@ -353,7 +378,11 @@ export default function ChartLine() {
                 dataKey={selectedMonth === ALL_MONTHS ? "month" : "day"}
                 tick={selectedMonth === ALL_MONTHS ? undefined : <CustomTick />}
                 tickFormatter={(value) =>
-                  selectedMonth === ALL_MONTHS ? formatMonthLabel(String(value)) : String(value)
+                  selectedMonth === ALL_MONTHS
+                    ? selectedYear === ALL_YEARS
+                      ? formatYearMonthLabel(String(value))
+                      : formatMonthLabel(String(value))
+                    : String(value)
                 }
                 interval={0}
                 minTickGap={5}
